@@ -21,12 +21,13 @@ use PsrJwt\Handler\Json;
 
 
 //require __DIR__.'/config/database.php';
-require __DIR__ . './vendor/autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 $key = 'todorojo';
 $app = AppFactory::create();
 $conn = new Database();
 //si no esta en la raiz hay que indicarle la raiz
-$app->setBasePath('/comanda');
+//$app->setBasePath('/comanda');
+//$app->setBasePath('public_html');
 $app->addErrorMiddleware(true, false, false);
 
 //LOGIN

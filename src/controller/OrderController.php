@@ -73,8 +73,8 @@ class OrderController{
                     $order['guid'] = $newGuid;
                     $order['id_table'] = $table[0]['id'];
                     $order['status'] = 'Recepcionado';
-                    $tableNewStatus = 'Con clientes esperando pedido';
-                    if($order->save() && $table[0]->update(['status'=>$tableNewStatus])){
+                    $table[0]['status'] = 'Con clientes esperando pedido';
+                    if($order->save() && $table[0]->save()){
                         $newOrderId = Order::select('id')->where('guid', $newGuid)->get(); 
                         
                         foreach($items as $item){
@@ -160,41 +160,73 @@ class OrderController{
         } else if(in_array($role, ['cervecero', 'cocinero', 'bartender'])) {
             $item_id = $request->getParsedBody()['item_id'];
             $newExpectedTime = $request->getParsedBody()['expectedTime'];
-            
-            
+            $line = Order_line::where('order_id', $args['id'])->where('item_id', $item_id)->get();
 
             if(!empty($newStatus)){
                 if($newStatus == -1){
                     $response->getBody()->write(json_encode(['Error'=>"Estado del pedido no válido."],JSON_PRETTY_PRINT));
                 } else {  
-                    $updateOrder['status'] = $newStatus;
+                    //$updateOrder['status'] = $newStatus;
+                    
+                    $line[0]['status'] = $newStatus;
+                    $response->getBody()->write(json_encode(['Exito'=>"Estado del item modificado."],JSON_PRETTY_PRINT));
                 }  
             }
 
             if(!empty($newExpectedTime)){
                 if(is_numeric($newExpectedTime) && $newExpectedTime > 0){
-                    $updateOrder['expected_time'] = $newExpectedTime;
+                    //$updateOrder['expected_time'] = intval($newExpectedTime);
+                    $line[0]['expected_time'] = intval($newExpectedTime);
+                    $response->getBody()->write(json_encode(['Exito'=>"Tiempo estimado de preparacion del item modificado."],JSON_PRETTY_PRINT));
                 } else {
                     $response->getBody()->write(json_encode(['Error'=>"Tiempo estimado de preparación del pedido no válido."],JSON_PRETTY_PRINT));
                 }
             } 
-            
 
+            if($line[0]->save()){
+                
+                $order = Order::where('id', $args['id'])->get();
+                $lines = Order_line::where('order_id', $args['id'])->get()->count();
+                $linesPrep = Order_line::where('order_id', $args['id'])->where('status', 'En preparación')->get()->count();
+                $linesReady = Order_line::where('order_id', $args['id'])->where('status', 'Listo para servir')->get()->count();
+                $linesServed = Order_line::where('order_id', $args['id'])->where('status', 'Servido')->get()->count();
+
+                if($lines == $linesPrep){
+                    $order[0]->update(['status'=>'En preparación']); 
+                }  else if($lines == $linesReady){
+                    $order[0]->update(['status'=>'Listo para servir']); 
+                } else if($lines == $linesServed){
+                    $order[0]->update(['status'=>'Servido']); 
+                }
+
+                $response->getBody()->write(json_encode(['Exito'=>"Pedido modificado con éxito."],JSON_PRETTY_PRINT));
+                
+            } else {
+                $response->getBody()->write(json_encode(['Error'=>"No se pudo modificar el pedido."],JSON_PRETTY_PRINT));
+            }
+            /*
             $affected = DB::table('order_lines')
                             ->where('order_id', $args['id'])
                             ->where('items.responsable', $role)
                             ->where('items.id', $item_id)
                             ->join('items', 'order_lines.item_id', '=', 'items.id')
-                            ->update($updateOrder);
+                            ->get();
+                            //->update($updateOrder);
+            */
             
+
+            //$status[0]['status'] = $newStatus;
+            /*
             if($affected == 1){
+                
+
                 $response->getBody()->write(json_encode(['Exito'=>"Pedido modificado con éxito."],JSON_PRETTY_PRINT));
             } else if($affected == 0){
                 $response->getBody()->write(json_encode(['Error'=>"No se pudo modificar el pedido."],JSON_PRETTY_PRINT));
             } else {
                 $response->getBody()->write(json_encode(['Atención'=>"Más de un item fue modifcado en el pedido."],JSON_PRETTY_PRINT));
             }
-
+            */
         } else {
             throw new \Slim\Exception\HttpForbiddenException($request);
         }
@@ -287,7 +319,8 @@ class OrderController{
         $items = Order_line::select('items.description AS producto',
                                     'order_lines.quantity AS cantidad', 
                                     'items.price AS precio',
-                                    'order_lines.status AS estado' 
+                                    'order_lines.status AS estado',
+				    'order_lines.expected_time'
                                     )
                             ->join('items', 'order_lines.item_id', '=', 'items.id')
                             ->join('orders', 'orders.id', '=', 'order_lines.order_id')
@@ -306,9 +339,10 @@ class OrderController{
         foreach($items as $item){
             if($item['expected_time'] > 0){
                 $time = $this->getRemainingTime($pedido, $mesa);//$this->getRemainingTime($items, $item['expected_time']);
-                if($time > 0){
+                $time = $this->getRemainingTime($pedido, $mesa);//$this->getRemainingTime($items, $item['expected_time']);
+                if($time > 0 && !in_array($item['estado'], ['Servido', 'Listo para servir'])){
                     $estimado = "Faltan ". $time ." minutos para que su pedido sea servido.";
-                } else if($time <= 0 && in_array($item['estado'], ['Servido', 'Listo para servir'])){
+                } else if($time <= 0 && in_array($item['estado'], ['Servido', 'Listo para servir']) || $time > 0 && in_array($item['estado'], ['Servido', 'Listo para servir'])){
                     $estimado = "Su pedido ya está listo y pronto va a ser servido.";
                 } else if($time < 0 && !in_array($item['estado'], ['Servido', 'Listo para servir'])){
                     $estimado = "Su pedido tiene una demora de ". abs($time) ." minutos.";
