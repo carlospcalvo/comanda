@@ -73,7 +73,8 @@ class OrderController{
                     $order['guid'] = $newGuid;
                     $order['id_table'] = $table[0]['id'];
                     $order['status'] = 'Recepcionado';
-                    if($order->save()){
+                    $tableNewStatus = 'Con clientes esperando pedido';
+                    if($order->save() && $table[0]->update(['status'=>$tableNewStatus])){
                         $newOrderId = Order::select('id')->where('guid', $newGuid)->get(); 
                         
                         foreach($items as $item){
