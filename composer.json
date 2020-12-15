@@ -1,0 +1,21 @@
+{
+    "name": "carlospcalvo/modelo_slim",
+    "authors": [{
+        "name": "Carlos Calvo",
+        "email": "carloscalvonazabal@gmail.com"
+    }],
+    "require": {
+        "slim/slim": "4.*",
+        "slim/psr7": "^1.2",
+        "illuminate/database": "^8.14",
+        "illuminate/events": "^8.14",
+        "firebase/php-jwt": "^5.2",
+        "rbdwllr/psr-jwt": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Config\\": "config/",
+            "App\\": "src/"
+        }
+    }
+}
